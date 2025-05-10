@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  password        String
+  role            Role      @default(USER)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  cart            Cart?
+  orders          Order[]
+  shippingAddress Address[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Product model
+model Product {
+  id           String        @id @default(cuid())
+  name         String
+  description  String
+  price        Float
+  stock        Int
+  images       String[]
+  category     Category      @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  highlighted  Boolean       @default(false)
+}
+
+// Category model
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Cart model
+model Cart {
+  id        String     @id @default(cuid())
+  user      User       @relation(fields: [userId], references: [id])
+  userId    String     @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// CartItem model
+model CartItem {
+  id        String   @id @default(cuid())
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+}
+
+// Order model
+model Order {
+  id               String      @id @default(cuid())
+  user             User        @relation(fields: [userId], references: [id])
+  userId           String
+  items            OrderItem[]
+  status           OrderStatus @default(PENDING)
+  shippingAddress  Address     @relation(fields: [shippingAddressId], references: [id])
+  shippingAddressId String
+  total            Float
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+// OrderItem model
+model OrderItem {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Int
+  price     Float    // Price at time of purchase
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// OrderStatus enum
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+// Address model
+model Address {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  street     String
+  city       String
+  state      String
+  postalCode String
+  country    String
+  isDefault  Boolean  @default(false)
+  orders     Order[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Promotional Banner model
+model PromotionalBanner {
+  id              String           @id @default(cuid())
+  title           String
+  description     String?
+  imageUrl        String
+  linkUrl         String?
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean          @default(true)
+  position        BannerPosition   @default(HOME_TOP)
+  priority        Int              @default(0) // Higher numbers show first
+  targetAudience  TargetAudience?  @default(ALL)
+  discount        Float?           // Optional discount percentage/amount
+  promoCode       String?          // Optional promo code
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+// Banner Position enum
+enum BannerPosition {
+  HOME_TOP
+  HOME_BOTTOM
+  SHOP_PAGE
+  PRODUCT_PAGE
+  CART_PAGE
+  CHECKOUT_PAGE
+}
+
+// Target Audience enum
+enum TargetAudience {
+  ALL
+  NEW_USERS
+  RETURNING_USERS
+}
