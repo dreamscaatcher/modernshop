@@ -14,16 +14,27 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Use the build env file for the build process
-COPY .env.build .env
+# Build environment variables will be set via ARG
+ARG DATABASE_URL
+ARG JWT_SECRET
+ARG NODE_ENV=production
+ARG NEXT_TELEMETRY_DISABLED=1
+ARG SKIP_ENV_VALIDATION=true
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-ENV NEXT_TELEMETRY_DISABLED 1
+# Set environment variables for build
+ENV DATABASE_URL=$DATABASE_URL
+ENV JWT_SECRET=$JWT_SECRET
+ENV NODE_ENV=$NODE_ENV
+ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
+ENV SKIP_ENV_VALIDATION=$SKIP_ENV_VALIDATION
 
+# Print environment for debugging (exclude secrets)
+RUN echo "Building with NODE_ENV=$NODE_ENV SKIP_ENV_VALIDATION=$SKIP_ENV_VALIDATION"
+
+# Generate Prisma client
 RUN npx prisma generate
-# Skip the build-time database validation
-ENV SKIP_ENV_VALIDATION=true
+
+# Build Next.js app
 RUN npm run build
 
 # Production image, copy all the files and run next
