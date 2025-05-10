@@ -14,12 +14,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Use the build env file for the build process
+COPY .env.build .env
+
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN npx prisma generate
+# Skip the build-time database validation
+ENV SKIP_ENV_VALIDATION=true
 RUN npm run build
 
 # Production image, copy all the files and run next
