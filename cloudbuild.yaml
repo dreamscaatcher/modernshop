@@ -1,5 +1,17 @@
 steps:
-  # Build the container image
+  # Access secrets for build
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud secrets versions access latest --secret=database-url > .env
+        echo "JWT_SECRET=$(gcloud secrets versions access latest --secret=jwt-secret)" >> .env
+        echo "NODE_ENV=production" >> .env
+        echo "NEXT_TELEMETRY_DISABLED=1" >> .env
+        cat .env
+
+  # Build the container image with access to secrets
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'us-central1-docker.pkg.dev/${PROJECT_ID}/modernshop/app:${COMMIT_SHA}', '.']
 
