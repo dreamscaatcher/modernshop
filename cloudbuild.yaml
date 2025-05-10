@@ -1,41 +1,18 @@
 steps:
-  # Access secrets for build
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        gcloud secrets versions access latest --secret=database-url > .env
-        echo "JWT_SECRET=$(gcloud secrets versions access latest --secret=jwt-secret)" >> .env
-        echo "NODE_ENV=production" >> .env
-        echo "NEXT_TELEMETRY_DISABLED=1" >> .env
-        cat .env
-
-  # Get database URL and JWT secret for build args
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'get-secrets'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        # Store secrets in environment variables for the next step
-        export DB_URL=$(gcloud secrets versions access latest --secret=database-url)
-        export JWT=$(gcloud secrets versions access latest --secret=jwt-secret)
-        # Store the secrets in files that will be available to the next step
-        echo "$DB_URL" > /workspace/db_url.txt
-        echo "$JWT" > /workspace/jwt.txt
-
-  # Build the container image with build args from secrets
+  # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        DB_URL=$(cat /workspace/db_url.txt)
-        JWT=$(cat /workspace/jwt.txt)
+        # Get secrets directly before building
+        DATABASE_URL=$(gcloud secrets versions access latest --secret=database-url)
+        JWT_SECRET=$(gcloud secrets versions access latest --secret=jwt-secret)
+
+        # Build with secrets as build args
         docker build \
-          --build-arg DATABASE_URL="$DB_URL" \
-          --build-arg JWT_SECRET="$JWT" \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg JWT_SECRET="$JWT_SECRET" \
           -t us-central1-docker.pkg.dev/${PROJECT_ID}/modernshop/app:${COMMIT_SHA} .
 
   # Push the container image to Artifact Registry
