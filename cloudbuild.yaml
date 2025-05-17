@@ -1,0 +1,62 @@
+steps:
+  # Access database credentials from Secret Manager
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Access DB Credentials'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud secrets versions access latest --secret=DATABASE_URL > database_url.txt
+        gcloud secrets versions access latest --secret=NEXTAUTH_SECRET > nextauth_secret.txt
+        gcloud secrets versions access latest --secret=STRIPE_SECRET_KEY > stripe_secret.txt
+        gcloud secrets versions access latest --secret=STRIPE_WEBHOOK_SECRET > stripe_webhook_secret.txt
+
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Image'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/modernshop:$COMMIT_SHA', '.']
+    env:
+      - 'DATABASE_URL=$$DATABASE_URL'
+      - 'NEXTAUTH_SECRET=$$NEXTAUTH_SECRET'
+      - 'STRIPE_SECRET_KEY=$$STRIPE_SECRET_KEY'
+      - 'STRIPE_WEBHOOK_SECRET=$$STRIPE_WEBHOOK_SECRET'
+    secretEnv: ['DATABASE_URL', 'NEXTAUTH_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Image'
+    args: ['push', 'gcr.io/$PROJECT_ID/modernshop:$COMMIT_SHA']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to Cloud Run'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'modernshop'
+      - '--image=gcr.io/$PROJECT_ID/modernshop:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=NEXTAUTH_URL=https://modernshop-url.a.run.app'
+      - '--set-secrets=DATABASE_URL=DATABASE_URL:latest,NEXTAUTH_SECRET=NEXTAUTH_SECRET:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--cpu=1'
+      - '--memory=2Gi'
+      - '--timeout=300s'
+
+images:
+  - 'gcr.io/$PROJECT_ID/modernshop:$COMMIT_SHA'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/DATABASE_URL/versions/latest
+      env: 'DATABASE_URL'
+    - versionName: projects/$PROJECT_ID/secrets/NEXTAUTH_SECRET/versions/latest
+      env: 'NEXTAUTH_SECRET'
+    - versionName: projects/$PROJECT_ID/secrets/STRIPE_SECRET_KEY/versions/latest
+      env: 'STRIPE_SECRET_KEY'
+    - versionName: projects/$PROJECT_ID/secrets/STRIPE_WEBHOOK_SECRET/versions/latest
+      env: 'STRIPE_WEBHOOK_SECRET'
